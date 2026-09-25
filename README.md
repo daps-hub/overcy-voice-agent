@@ -49,6 +49,8 @@ Overcy is a real-time AI voice agent that handles live web and telephone convers
 
 ## 🏗️ Architecture
 
+![Overcy AI Voice Agent Architecture](docs/architecture/overcy-architecture-v1.png)
+
 Overcy supports both web and telephone interactions.
 
 ```text
