@@ -1,1002 +1,716 @@
-\# 🎙️ Overcy AI Voice Agent
+Today 9:11 PM
+Pasted code(7).ts
+TypeScript
+where is the third button?
+we have two blue buttons, pls use another color and let all the text on all the buttons to be the same
+Pasted code(10).py
+Python
+it asked for a future date
+Pasted code(9).ts
+TypeScript
+there is no banner in realtime         but it works fine 
+this came up even though the ai rejected the old date 
+at first but changed when i changed to future date 
+Pasted code(20260924-060405).py
+Python
+Today 9:38 PM
+i paid for the account  
+it hung up
 
+Good. Let's replace the malformed README with a cleaner GitHub version. We'll also make it shorter and more professional than the 1,000-line version.
 
+Open:
 
-\*\*Overcy\*\* is a real-time AI voice agent that can answer phone calls, hold natural conversations with callers, capture leads, and schedule appointments automatically.
+notepad README.md
 
+Press Ctrl+A, delete everything, and paste this:
 
+# 🎙️ Overcy AI Voice Agent
 
-The V1 application integrates \*\*Twilio Programmable Voice\*\*, \*\*OpenAI Realtime\*\*, \*\*FastAPI\*\*, WebSockets, a database-backed lead/appointment workflow, and a \*\*Next.js\*\* frontend.
+Overcy is a real-time AI voice agent that handles live web and telephone conversations, captures customer leads, validates appointment requests, and schedules appointments through AI tool calling.
 
+**Version:** 1.0  
+**Status:** Working V1 prototype
 
+## ✨ Features
 
-\---
+- Real-time AI voice conversations
+- Live telephone calls through Twilio
+- OpenAI Realtime integration
+- Twilio Media Streams
+- FastAPI WebSocket bridge
+- Next.js / React frontend
+- Lead capture
+- Appointment scheduling
+- AI tool/function calling
+- Past-date validation
+- Database persistence
+- Conversational error recovery
 
+## 🏗️ Architecture
 
-
-\## 🚀 Overview
-
-
-
-Overcy demonstrates an end-to-end AI voice automation workflow.
-
-
-
-A customer calls a Twilio phone number. Twilio connects the live call to the FastAPI backend using a webhook and media stream. The backend establishes a WebSocket connection with OpenAI Realtime, allowing the caller and AI agent to communicate in real time.
-
-
-
-During the conversation, the AI agent can collect customer information and invoke backend tools to create leads and schedule appointments.
-
-
-
-\### V1 Capabilities
-
-
-
-\- 📞 Receive real phone calls through Twilio
-
-\- 🎙️ Stream caller audio in real time
-
-\- 🤖 Conduct AI-powered voice conversations
-
-\- 🔄 Twilio ↔ OpenAI Realtime WebSocket bridge
-
-\- 👤 Capture caller information as CRM leads
-
-\- 📅 Schedule appointments during a live call
-
-\- 🛠️ AI tool/function calling
-
-\- 🗄️ Persist leads and appointments
-
-\- 🚫 Reject appointment dates that are already in the past
-
-\- 💬 Provide appointment confirmation conversationally
-
-\- 🌐 FastAPI REST/WebSocket backend
-
-\- 🖥️ Next.js frontend
-
-\- 🔐 Environment-variable-based secret management
-
-
-
-\---
-
-
-
-\# 🏗️ Architecture
-
-
+Overcy supports both web and telephone interactions.
 
 ```text
+                         OVERCY AI VOICE AGENT
 
-&#x20;                        ┌─────────────────────┐
-
-&#x20;                        │       Caller        │
-
-&#x20;                        │   Mobile / Phone    │
-
-&#x20;                        └──────────┬──────────┘
-
-&#x20;                                   │
-
-&#x20;                                   │ PSTN Call
-
-&#x20;                                   ▼
-
-&#x20;                        ┌─────────────────────┐
-
-&#x20;                        │       Twilio        │
-
-&#x20;                        │ Programmable Voice  │
-
-&#x20;                        └──────────┬──────────┘
-
-&#x20;                                   │
-
-&#x20;                        Voice Webhook / Media
-
-&#x20;                                   │
-
-&#x20;                                   ▼
-
-&#x20;                ┌────────────────────────────────┐
-
-&#x20;                │        FastAPI Backend         │
-
-&#x20;                │                                │
-
-&#x20;                │  /api/twilio/voice             │
-
-&#x20;                │  /ws/twilio-media              │
-
-&#x20;                │                                │
-
-&#x20;                │  Voice orchestration           │
-
-&#x20;                │  Tool execution                │
-
-&#x20;                └──────────────┬─────────────────┘
-
-&#x20;                               │
-
-&#x20;                        WebSocket / Audio
-
-&#x20;                               │
-
-&#x20;                               ▼
-
-&#x20;                ┌────────────────────────────────┐
-
-&#x20;                │       OpenAI Realtime          │
-
-&#x20;                │                                │
-
-&#x20;                │  Speech understanding          │
-
-&#x20;                │  Conversation reasoning        │
-
-&#x20;                │  Voice generation              │
-
-&#x20;                │  Tool calling                  │
-
-&#x20;                └──────────────┬─────────────────┘
-
-&#x20;                               │
-
-&#x20;                          Tool Calls
-
-&#x20;                               │
-
-&#x20;                ┌──────────────┴───────────────┐
-
-&#x20;                ▼                              ▼
-
-&#x20;       ┌─────────────────┐            ┌─────────────────┐
-
-&#x20;       │   Lead / CRM    │            │  Appointments   │
-
-&#x20;       │     Tools       │            │      Tools      │
-
-&#x20;       └────────┬────────┘            └────────┬────────┘
-
-&#x20;                │                              │
-
-&#x20;                └──────────────┬───────────────┘
-
-&#x20;                               ▼
-
-&#x20;                      ┌─────────────────┐
-
-&#x20;                      │    Database     │
-
-&#x20;                      │ Leads / Booking │
-
-&#x20;                      └─────────────────┘
-
+   Web User                                  Phone Caller
+      │                                           │
+      ▼                                           ▼
+ Next.js / React                               Twilio
+      │                                      Voice / Media
+      │                                           │
+      └──────────────────┬────────────────────────┘
+                         ▼
+                  FastAPI Backend
+                  ├─ REST APIs
+                  ├─ Voice Webhook
+                  └─ WebSocket Bridge
+                         │
+                         ▼
+                  OpenAI Realtime
+                         │
+                    Tool Calling
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+        Lead Capture           Appointment
+           Tool               Scheduling Tool
+             │                       │
+             └───────────┬───────────┘
+                         ▼
+                      Database
+                  Leads / Appointments
 ```
 
-
-
-\---
-
-
-
-\# 🔄 Real-Time Call Flow
-
-
+### Telephone flow
 
 ```text
-
 Caller
-
-&#x20;  │
-
-&#x20;  ▼
-
+  ↓
 Twilio Phone Number
-
-&#x20;  │
-
-&#x20;  │ POST /api/twilio/voice
-
-&#x20;  ▼
-
-FastAPI
-
-&#x20;  │
-
-&#x20;  │ WebSocket
-
-&#x20;  ▼
-
-/ws/twilio-media
-
-&#x20;  │
-
-&#x20;  ├──────── Caller audio ────────► OpenAI Realtime
-
-&#x20;  │
-
-&#x20;  ◄──────── AI audio ──────────── OpenAI Realtime
-
-&#x20;  │
-
-&#x20;  ▼
-
-Twilio
-
-&#x20;  │
-
-&#x20;  ▼
-
-Caller hears AI response
-
-```
-
-
-
-When the caller requests an appointment:
-
-
-
-```text
-
-Caller
-
-&#x20;  │
-
-&#x20;  │ "I'd like to schedule a meeting"
-
-&#x20;  ▼
-
-OpenAI Realtime
-
-&#x20;  │
-
-&#x20;  │ Tool Call
-
-&#x20;  ▼
-
-Booking Tool
-
-&#x20;  │
-
-&#x20;  ├── Capture lead
-
-&#x20;  ├── Validate requested date
-
-&#x20;  ├── Create appointment
-
-&#x20;  └── Store appointment
-
-&#x20;  │
-
-&#x20;  ▼
-
-Tool Result
-
-&#x20;  │
-
-&#x20;  ▼
-
-OpenAI Realtime
-
-&#x20;  │
-
-&#x20;  ▼
-
-Voice confirmation to caller
-
-```
-
-
-
-\---
-
-
-
-\# 🧰 Technology Stack
-
-
-
-\## Backend
-
-
-
-\- Python
-
-\- FastAPI
-
-\- WebSockets
-
-\- OpenAI Realtime API
-
-\- Twilio Programmable Voice
-
-\- Database-backed lead and appointment management
-
-
-
-\## Frontend
-
-
-
-\- Next.js
-
-\- React
-
-\- TypeScript
-
-\- CSS
-
-
-
-\## AI / Voice
-
-
-
-\- OpenAI Realtime
-
-\- Real-time speech interaction
-
-\- Tool/function calling
-
-\- Conversational appointment scheduling
-
-
-
-\## Telephony
-
-
-
-\- Twilio Programmable Voice
-
-\- Twilio Voice Webhooks
-
-\- Twilio Media Streams
-
-
-
-\## Development / Infrastructure
-
-
-
-\- Git
-
-\- GitHub
-
-\- ngrok for local webhook tunneling
-
-\- PowerShell
-
-\- Uvicorn
-
-
-
-\---
-
-
-
-\# 📁 Project Structure
-
-
-
-```text
-
-overcy-voice-agent/
-
-│
-
-├── backend/
-
-│   ├── main.py
-
-│   ├── agent.py
-
-│   ├── database.py
-
-│   ├── models.py
-
-│   ├── voice.py
-
-│   │
-
-│   └── tools/
-
-│       ├── appointments.py
-
-│       ├── booking.py
-
-│       ├── crm.py
-
-│       ├── leads.py
-
-│       └── requirements.txt
-
-│
-
-├── frontend/
-
-│   ├── app/
-
-│   │   ├── layout.tsx
-
-│   │   ├── page.tsx
-
-│   │   └── globals.css
-
-│   │
-
-│   ├── public/
-
-│   ├── package.json
-
-│   ├── package-lock.json
-
-│   ├── next.config.ts
-
-│   └── tsconfig.json
-
-│
-
-├── .gitignore
-
-└── README.md
-
-```
-
-
-
-\---
-
-
-
-\# 📞 Twilio Integration
-
-
-
-Twilio handles incoming telephone calls.
-
-
-
-The configured voice webhook points to:
-
-
-
-```text
-
+  ↓
 POST /api/twilio/voice
-
-```
-
-
-
-The backend returns instructions that connect the call to the application's real-time media WebSocket:
-
-
-
-```text
-
+  ↓
+FastAPI
+  ↓
 /ws/twilio-media
-
-```
-
-
-
-The media stream allows Overcy to exchange live call audio with the AI voice pipeline.
-
-
-
-For local development, the FastAPI application can be exposed to Twilio through an HTTPS tunnel such as ngrok.
-
-
-
-\---
-
-
-
-\# 🤖 OpenAI Realtime Integration
-
-
-
-Once the Twilio media stream connects, the backend establishes a real-time connection to OpenAI.
-
-
-
-The application then acts as a bridge:
-
-
-
-```text
-
-Twilio Audio
-
-&#x20;    ↓
-
-FastAPI WebSocket
-
-&#x20;    ↓
-
+  ↓
 OpenAI Realtime
-
-&#x20;    ↓
-
-AI Response Audio
-
-&#x20;    ↓
-
-FastAPI WebSocket
-
-&#x20;    ↓
-
+  ↓
+AI Conversation
+  ↓
+Tool Call
+  ↓
+Lead / Appointment Services
+  ↓
+Database
+  ↓
+Tool Result
+  ↓
+OpenAI Realtime
+  ↓
 Twilio
-
-&#x20;    ↓
-
-Caller
-
+  ↓
+Caller hears confirmation
 ```
 
+## 🤖 Appointment Tool Flow
 
+The language model does not directly create database records.
 
-This allows the caller to communicate naturally with the AI without requiring a traditional text-only chatbot interface.
+When a caller asks to schedule an appointment:
 
+1. The AI collects the required information.
+2. OpenAI requests the appropriate backend tool.
+3. The backend validates the appointment request.
+4. Invalid requests, such as dates in the past, are rejected.
+5. Valid leads and appointments are persisted.
+6. The tool result is returned to the AI.
+7. The AI communicates the result to the caller.
 
-
-\---
-
-
-
-\# 🛠️ Tool Calling
-
-
-
-The voice agent can invoke application tools while speaking with a caller.
-
-
-
-Examples include:
-
-
-
-\### Lead Capture
-
-
-
-The agent can collect caller information and create a lead.
-
-
-
-\### Appointment Scheduling
-
-
-
-The agent can collect:
-
-
-
-\- Customer name
-
-\- Requested date
-
-\- Requested time
-
-
-
-The backend validates the request before creating the appointment.
-
-
-
-For example, a request for an appointment in the past is rejected and the AI asks the caller to choose a future date.
-
-
-
-\---
-
-
-
-\# 🗄️ Data Layer
-
-
-
-The backend includes data models and database logic for application data such as:
-
-
+Example:
 
 ```text
+Caller:
+"I'd like an appointment for November 20, 2024."
 
-Leads
+Overcy:
+"That date is in the past. Please choose a future date."
 
-Appointments
+Caller:
+"March 4, 2027 at 10 AM."
 
+Overcy:
+"Your appointment has been successfully scheduled
+for March 4, 2027 at 10 AM."
 ```
 
+## 🧰 Technology Stack
 
+**AI**
+- OpenAI Realtime
+- Tool/function calling
+- Real-time conversational AI
 
-This separates conversational AI behavior from persistent business data.
+**Backend**
+- Python
+- FastAPI
+- WebSockets
+- Uvicorn
 
+**Telephony**
+- Twilio Programmable Voice
+- Twilio Media Streams
+- Voice webhooks
 
+**Frontend**
+- Next.js
+- React
+- TypeScript
 
-\---
+**Development**
+- Git
+- GitHub
+- ngrok
+- PowerShell
 
+## 📁 Project Structure
 
+```text
+overcy-voice-agent/
+├── backend/
+│   ├── main.py
+│   ├── agent.py
+│   ├── database.py
+│   ├── models.py
+│   ├── voice.py
+│   └── tools/
+│       ├── appointments.py
+│       ├── booking.py
+│       ├── crm.py
+│       └── leads.py
+│
+├── frontend/
+│   ├── app/
+│   ├── public/
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── docs/
+│   └── architecture/
+│
+├── .gitignore
+└── README.md
+```
 
-\# ⚙️ Local Development
+## 📞 Twilio Integration
 
+Incoming telephone calls are handled through the voice webhook:
 
+```text
+POST /api/twilio/voice
+```
 
-\## 1. Clone the repository
+Twilio then connects the live audio stream to:
 
+```text
+/ws/twilio-media
+```
 
+FastAPI bridges the Twilio media stream with the OpenAI Realtime connection, allowing two-way AI voice conversations over a real telephone call.
+
+## 🛠️ Backend Tools
+
+### Lead Capture
+
+Creates or retrieves customer lead information collected during the conversation.
+
+### Appointment Scheduling
+
+Creates appointments associated with captured leads.
+
+### Validation
+
+Business rules remain in the backend rather than relying solely on the language model.
+
+For example, the scheduling layer rejects appointment dates that have already passed.
+
+## ⚙️ Local Setup
+
+Clone the repository:
 
 ```bash
-
 git clone https://github.com/daps-hub/overcy-voice-agent.git
-
 cd overcy-voice-agent
-
 ```
 
-
-
-\## 2. Create a Python virtual environment
-
-
-
-Windows:
-
-
+Create and activate the Python environment:
 
 ```powershell
-
 python -m venv .venv
-
-.\\.venv\\Scripts\\Activate.ps1
-
+.\.venv\Scripts\Activate.ps1
 ```
 
-
-
-\## 3. Install backend dependencies
-
-
+Install backend dependencies:
 
 ```powershell
-
 pip install -r backend/tools/requirements.txt
-
 ```
 
-
-
-\## 4. Configure environment variables
-
-
-
-Create a local `.env` file for required credentials.
-
-
-
-Example:
-
-
-
-```text
-
-OPENAI\_API\_KEY=your\_openai\_api\_key
-
-TWILIO\_ACCOUNT\_SID=your\_twilio\_account\_sid
-
-TWILIO\_AUTH\_TOKEN=your\_twilio\_auth\_token
-
-```
-
-
-
-Never commit the real `.env` file or API credentials to GitHub.
-
-
-
-\## 5. Start the backend
-
-
-
-Run the FastAPI/Uvicorn application using the command appropriate to the project's module configuration.
-
-
-
-For example:
-
-
+Start FastAPI:
 
 ```powershell
-
 uvicorn backend.main:app --reload
-
 ```
 
-
-
-The backend will normally be available at:
-
-
-
-```text
-
-http://127.0.0.1:8000
-
-```
-
-
-
-FastAPI documentation:
-
-
-
-```text
-
-http://127.0.0.1:8000/docs
-
-```
-
-
-
-\## 6. Start the frontend
-
-
-
-Open another terminal:
-
-
+Start the frontend in another terminal:
 
 ```powershell
-
 cd frontend
-
 npm install
-
 npm run dev
-
 ```
 
-
-
-\## 7. Expose the backend for Twilio
-
-
-
-For local testing, expose port `8000` using an HTTPS tunnel.
-
-
-
-Example:
-
-
+For local Twilio testing, expose the FastAPI server using an HTTPS tunnel:
 
 ```powershell
-
 ngrok http 8000
-
 ```
 
+## 🔐 Environment Variables
 
+Credentials must be provided through environment variables and must never be committed to Git.
 
-Configure the Twilio voice webhook to point to:
-
-
+Example configuration:
 
 ```text
-
-https://YOUR-PUBLIC-HOST/api/twilio/voice
-
+OPENAI_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
 ```
 
+The real `.env` file is excluded by `.gitignore`.
 
+## 🔒 Security
 
-\---
+Overcy V1 separates AI reasoning from deterministic business operations.
 
+Important security practices include:
 
+- Secrets stored outside source control
+- Backend validation before database writes
+- Tool-mediated business actions
+- Environment-based configuration
+- Git exclusion of local databases and credentials
 
-\# 🔐 Security
+Production deployment should use a managed secrets service rather than local `.env` files.
 
+## ✅ V1 End-to-End Validation
 
-
-Sensitive credentials are intentionally excluded from source control.
-
-
-
-The `.gitignore` excludes files and directories such as:
-
-
-
-```text
-
-.env
-
-.env.\*
-
-.venv/
-
-venv/
-
-\_\_pycache\_\_/
-
-\*.pyc
-
-\*.db
-
-node\_modules/
-
-frontend/.next/
-
-\*.log
-
-```
-
-
-
-API keys, authentication tokens, and production secrets should be supplied through environment variables or a production secrets-management service.
-
-
-
-\---
-
-
-
-\# ✅ V1 Validation
-
-
-
-The V1 call workflow has been tested end-to-end with a live telephone call.
-
-
-
-Validated behavior includes:
-
-
+The following workflow has been successfully tested with a live telephone call:
 
 ```text
-
-Incoming phone call
-
-&#x20;       ↓
-
-Twilio webhook
-
-&#x20;       ↓
-
-Twilio Media Stream
-
-&#x20;       ↓
-
+Incoming Call
+     ↓
+Twilio
+     ↓
+Media Stream
+     ↓
 FastAPI WebSocket
-
-&#x20;       ↓
-
-OpenAI Realtime connection
-
-&#x20;       ↓
-
-Two-way voice conversation
-
-&#x20;       ↓
-
-Lead capture
-
-&#x20;       ↓
-
-Appointment request
-
-&#x20;       ↓
-
-Date validation
-
-&#x20;       ↓
-
-Appointment creation
-
-&#x20;       ↓
-
-Voice confirmation
-
+     ↓
+OpenAI Realtime
+     ↓
+Natural Voice Conversation
+     ↓
+Tool Invocation
+     ↓
+Lead Capture
+     ↓
+Appointment Validation
+     ↓
+Appointment Creation
+     ↓
+Spoken Confirmation
 ```
 
+The agent has also demonstrated conversational recovery by rejecting a past appointment date, requesting a new date, and successfully scheduling the corrected future appointment.
 
+## 🗺️ Roadmap
 
-The agent also successfully handles invalid scheduling requests by rejecting past dates and requesting a future appointment date.
+Future versions may include:
 
+- AWS deployment
+- PostgreSQL
+- Docker
+- GitHub Actions CI/CD
+- CRM integrations
+- Calendar integrations
+- Authentication and RBAC
+- Multi-tenant organizations
+- Call history dashboard
+- Conversation analytics
+- Monitoring and observability
+- Automated AI evaluations
+- Human-agent escalation
+- SMS reminders
+- Production secrets management
 
+## 📌 Project Status
 
-\---
-
-
-
-\# 🗺️ Roadmap
-
-
-
-Potential post-V1 enhancements include:
-
-
-
-\- AWS production deployment
-
-\- Docker containerization
-
-\- CI/CD with GitHub Actions
-
-\- Production database deployment
-
-\- Authentication and authorization
-
-\- Multi-tenant business accounts
-
-\- Business-specific agent configuration
-
-\- Calendar integrations
-
-\- CRM integrations
-
-\- Call analytics
-
-\- Conversation transcripts
-
-\- Call history dashboard
-
-\- Monitoring and observability
-
-\- Automated AI evaluation
-
-\- Retry and failure recovery
-
-\- Human-agent escalation
-
-\- SMS follow-up
-
-\- Appointment reminders
-
-\- Production secrets management
-
-
-
-\---
-
-
-
-\# 📌 Project Status
-
-
-
-\*\*Version:\*\* V1.0
-
-
-
-\*\*Status:\*\* Functional end-to-end prototype
-
-
+**Overcy AI Voice Agent V1.0 — Complete**
 
 Core V1 workflow:
 
+```text
+Phone → Twilio → FastAPI → OpenAI Realtime
+      → Tool Calling → Lead Capture
+      → Appointment Scheduling → Voice Confirmation
+```
 
+## 👤 Author
 
-\*\*Phone Call → Twilio → FastAPI → OpenAI Realtime → Tool Calling → Lead Capture → Appointment Scheduling\*\*
-
-
-
-\---
-
-
-
-\## Author
-
-
-
-\*\*Dapo Hammed\*\*
-
-
-
+**Dapo Hammed**  
 Software Engineer / AI Engineer
 
+Press Ctrl+S and close Notepad.
+
+Then run only:
+
+git diff -- README.md
+
+That lets us inspect the corrected README before we commit it. If it looks normal—no &#x20;, stray **svg**, or escaped \# headings—then we'll commit the fix and add the actual architecture image next.
+
+
+   e8ee898..3439f26  main -> main
+PS C:\overcy-voice-agent> notepad README.md
+PS C:\overcy-voice-agent> git diff -- README.md
+diff --git a/README.md b/README.md
+index 38da1f2..e846dcf 100644
+--- a/README.md
++++ b/README.md
+@@ -2,189 +2,119 @@
+
+
+
+-\*\*Overcy\*\* is a real-time AI voice agent that can answer phone calls, hold natural conversations with callers, capture leads, and schedule appointments automatically.
++Overcy is a real-time AI voice agent that handles live web and telephone conversations, captures customer leads, validates appointment requests, and schedules appointments through AI tool calling.
+
+
+
+-The V1 application integrates \*\*Twilio Programmable Voice\*\*, \*\*OpenAI Realtime\*\*, \*\*FastAPI\*\*, WebSockets, a database-backed lead/appointment workflow, and a \*\*Next.js\*\* frontend.
++\*\*Version:\*\* 1.0
+
++\*\*Status:\*\* Working V1 prototype
+
+
+-\---
+
++\## ✨ Features
+
+
+-\## 🚀 Overview
+
++\- Real-time AI voice conversations
+
++\- Live telephone calls through Twilio
+
+-Overcy demonstrates an end-to-end AI voice automation workflow.
++\- OpenAI Realtime integration
+
++\- Twilio Media Streams
+
++\- FastAPI WebSocket bridge
+
+-A customer calls a Twilio phone number. Twilio connects the live call to the FastAPI backend using a webhook and media stream. The backend establishes a WebSocket connection with OpenAI Realtime, allowing the caller and AI agent to communicate in real time.
+-
+-
+-
+-During the conversation, the AI agent can collect customer information and invoke backend tools to create leads and schedule appointments.
+-
+-
+-
+-\### V1 Capabilities
+-
+-
+-
+:
+
+I see the issue. Don't commit this yet.
+
+Your new README is still being saved with escaped Markdown:
+
++\*\*Version:\*\* 1.0
++\## ✨ Features
++\- Real-time AI voice conversations
+
+We need actual Markdown:
+
+**Version:** 1.0
+## ✨ Features
+- Real-time AI voice conversations
+
+So Notepad isn't the problem—the text being pasted contains the backslashes.
+
+Easiest fix
+
+Instead of manually cleaning hundreds of lines, I can create a clean README.md file for you with proper Markdown formatting. Then you can replace the existing file in:
+
+C:\overcy-voice-agent\README.md
+
+That avoids this escaping problem completely.
+
+Say “generate the README file” and I'll create the actual .md file for you to download/copy into the project.
+
+generate the README file  
+
+Done. I generated a clean README.md file with proper GitHub Markdown formatting—no &#x20;, escaped headings, or stray svg text.
+
+Download the clean README.md
+
+Replace:
+
+C:\overcy-voice-agent\README.md
+
+with this downloaded file.
+
+Then run:
+
+cd C:\overcy-voice-agent
+git diff -- README.md
+
+Once we verify it looks clean, we'll commit and push it, then add the architecture diagram. 
+
+README.md
+Document
+
+Library
+/
+README.md
+🎙️ Overcy AI Voice Agent
+
+Overcy is a real-time AI voice agent that handles live web and telephone
+conversations, captures customer leads, validates appointment requests,
+and schedules appointments through AI tool calling.
+
+Version: 1.0
+Status: Working V1 prototype
+
+✨ Features
+Real-time AI voice conversations
+Live telephone calls through Twilio
+OpenAI Realtime integration
+Twilio Media Streams
+FastAPI WebSocket bridge
+Next.js / React frontend
+Lead capture
+Appointment scheduling
+AI tool/function calling
+Past-date validation
+Database persistence
+Conversational error recovery
+🏗️ Architecture
+
+Overcy supports both web and telephone interactions.
+
+Web User → Next.js / React ─┐
+                            ├→ FastAPI Backend → OpenAI Realtime → Tool Calling
+Phone Caller → Twilio ──────┘                                  ↓
+                                                     Lead / Appointment Tools
+                                                               ↓
+                                                            Database
+Telephone Flow
+Caller → Twilio → POST /api/twilio/voice → FastAPI
+       → /ws/twilio-media → OpenAI Realtime → AI Conversation
+       → Tool Call → Lead / Appointment Services → Database
+       → Tool Result → OpenAI Realtime → Twilio → Caller
+🤖 Appointment Tool Flow
+
+The language model does not directly create database records.
+
+When a caller asks to schedule an appointment:
+
+The AI collects the required information.
+OpenAI requests the appropriate backend tool.
+The backend validates the appointment request.
+Invalid requests, such as dates in the past, are rejected.
+Valid leads and appointments are persisted.
+The tool result is returned to the AI.
+The AI communicates the result to the caller.
+
+Example:
+
+Caller: "I'd like an appointment for November 20, 2024."
+Overcy: "That date is in the past. Please choose a future date."
+
+Caller: "March 4, 2027 at 10 AM."
+Overcy: "Your appointment has been successfully scheduled for March 4, 2027 at 10 AM."
+🧰 Technology Stack
+AI
+OpenAI Realtime
+Tool/function calling
+Real-time conversational AI
+Backend
+Python
+FastAPI
+WebSockets
+Uvicorn
+Telephony
+Twilio Programmable Voice
+Twilio Media Streams
+Voice webhooks
+Frontend
+Next.js
+React
+TypeScript
+Development
+Git
+GitHub
+ngrok
+PowerShell
+📁 Project Structure
+overcy-voice-agent/
+├── backend/
+│   ├── main.py
+│   ├── agent.py
+│   ├── database.py
+│   ├── models.py
+│   ├── voice.py
+│   └── tools/
+│       ├── appointments.py
+│       ├── booking.py
+│       ├── crm.py
+│       └── leads.py
+├── frontend/
+│   ├── app/
+│   ├── public/
+│   ├── package.json
+│   └── tsconfig.json
+├── docs/
+│   └── architecture/
+├── .gitignore
+└── README.md
+📞 Twilio Integration
+
+Incoming telephone calls are handled through:
+
+POST /api/twilio/voice
+
+Twilio connects live audio to:
+
+/ws/twilio-media
+
+FastAPI bridges the Twilio media stream with OpenAI Realtime, allowing
+two-way AI voice conversations over a telephone call.
+
+🛠️ Backend Tools
+Lead Capture
+
+Creates or retrieves customer lead information collected during the
+conversation.
+
+Appointment Scheduling
+
+Creates appointments associated with captured leads.
+
+Validation
+
+Business rules remain in the backend rather than relying solely on the
+language model. For example, the scheduling layer rejects appointment
+dates that have already passed.
+
+⚙️ Local Setup
+
+Clone the repository:
+
+git clone https://github.com/daps-hub/overcy-voice-agent.git
+cd overcy-voice-agent
+
+Create and activate the Python environment:
+
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+Install backend dependencies:
+
+pip install -r backend/tools/requirements.txt
+
+Start FastAPI:
+
+uvicorn backend.main:app --reload
+
+Start the frontend:
+
+cd frontend
+npm install
+npm run dev
+
+For local Twilio testing:
+
+ngrok http 8000
+🔐 Environment Variables
+
+Credentials must be provided through environment variables and must
+never be committed to Git.
+
+OPENAI_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+
+The real .env file is excluded by .gitignore.
+
+🔒 Security
+
+Overcy V1 separates AI reasoning from deterministic business operations.
+
+Secrets stored outside source control
+Backend validation before database writes
+Tool-mediated business actions
+Environment-based configuration
+Git exclusion of local databases and credentials
+
+Production deployment should use a managed secrets service rather than
+local .env files.
+
+✅ V1 End-to-End Validation
+
+The V1 workflow has been successfully tested with a live telephone call:
+
+Incoming Call → Twilio → Media Stream → FastAPI WebSocket
+→ OpenAI Realtime → Natural Voice Conversation → Tool Invocation
+→ Lead Capture → Appointment Validation → Appointment Creation
+→ Spoken Confirmation
+
+The agent also demonstrated conversational recovery by rejecting a past
+appointment date, requesting a new date, and successfully scheduling the
+corrected future appointment.
+
+🗺️ Roadmap
+AWS deployment
+PostgreSQL
+Docker
+GitHub Actions CI/CD
+CRM integrations
+Calendar integrations
+Authentication and RBAC
+Multi-tenant organizations
+Call history dashboard
+Conversation analytics
+Monitoring and observability
+Automated AI evaluations
+Human-agent escalation
+SMS reminders
+Production secrets management
+📌 Project Status
+
+Overcy AI Voice Agent V1.0 --- Complete
+
+Phone → Twilio → FastAPI → OpenAI Realtime
+      → Tool Calling → Lead Capture
+      → Appointment Scheduling → Voice Confirmation
+👤 Author
+
+Dapo Hammed
+Software Engineer / AI Engineer
