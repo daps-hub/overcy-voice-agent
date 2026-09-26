@@ -41,6 +41,10 @@ def initialize_database():
                 REFERENCES leads(id)
         )
     """)
-
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_scheduled_appointment
+        ON appointments (appointment_date, appointment_time)
+        WHERE status = 'scheduled'
+    """)
     connection.commit()
     connection.close()
