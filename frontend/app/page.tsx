@@ -27,440 +27,853 @@ export default function Home() {
 
   const audioChunksRef =
     useRef<Blob[]>([]);
+
   const websocketRef =
-  useRef<WebSocket | null>(null);
- const peerConnectionRef =
-  useRef<RTCPeerConnection | null>(null);
+    useRef<WebSocket | null>(null);
 
-const realtimeDataChannelRef =
-  useRef<RTCDataChannel | null>(null);
+  const peerConnectionRef =
+    useRef<RTCPeerConnection | null>(null);
 
-const realtimeStreamRef =
-  useRef<MediaStream | null>(null);
+  const realtimeDataChannelRef =
+    useRef<RTCDataChannel | null>(null);
 
-const realtimeAudioRef =
-  useRef<HTMLAudioElement | null>(null);
+  const realtimeStreamRef =
+    useRef<MediaStream | null>(null);
 
-const realtimeTranscriptItemsRef =
-  useRef<Set<string>>(new Set());
+  const realtimeAudioRef =
+    useRef<HTMLAudioElement | null>(null);
 
-useEffect(() => {
-  const websocket = new WebSocket(
-    "ws://127.0.0.1:8000/ws/voice"
-  );
+  const realtimeTranscriptItemsRef =
+    useRef<Set<string>>(new Set());
 
-  websocketRef.current = websocket;
+  // --------------------------------------------------
+  // REALTIME BOOKING CONFIRMATION STATE
+  // --------------------------------------------------
 
-  websocket.onopen = () => {
-  console.log(
-    "Voice WebSocket connected"
-  );
-};
-  websocket.onmessage = (event) => {
-    console.log(
-      "WebSocket message:",
-      event.data
+  const realtimeBookingStateRef = useRef({
+    customerName: null as string | null,
+    nameConfirmed: false,
+    appointmentConfirmed: false,
+  });
+
+  // --------------------------------------------------
+  // FASTAPI WEBSOCKET
+  // --------------------------------------------------
+
+  useEffect(() => {
+    const websocket = new WebSocket(
+      "ws://127.0.0.1:8000/ws/voice"
     );
-  };
 
- websocket.onerror = () => {
-  console.log(
-    "WebSocket encountered an error"
-  );
-};
+    websocketRef.current = websocket;
 
-  websocket.onclose = (event) => {
-  console.log(
-    "Voice WebSocket disconnected",
-    {
-      code: event.code,
-      reason: event.reason,
-      clean: event.wasClean,
-    }
-  );
-};
-  return () => {
-    websocket.close();
-  };
-}, []);
+    websocket.onopen = () => {
+      console.log(
+        "Voice WebSocket connected"
+      );
+    };
+
+    websocket.onmessage = (event) => {
+      console.log(
+        "WebSocket message:",
+        event.data
+      );
+    };
+
+    websocket.onerror = () => {
+      console.log(
+        "WebSocket encountered an error"
+      );
+    };
+
+    websocket.onclose = (event) => {
+      console.log(
+        "Voice WebSocket disconnected",
+        {
+          code: event.code,
+          reason: event.reason,
+          clean: event.wasClean,
+        }
+      );
+    };
+
+    return () => {
+      websocket.close();
+    };
+  }, []);
+
+  // ==================================================
+  // OPENAI REALTIME VOICE
+  // ==================================================
 
   const startRealtimeConversation = async () => {
-  try {
-    console.log("Starting OpenAI Realtime...");
-
-    realtimeTranscriptItemsRef.current.clear();
-
-    // 1. Get temporary credential from FastAPI
-    const tokenResponse = await fetch(
-      "http://127.0.0.1:8000/api/realtime/token"
-    );
-
-    if (!tokenResponse.ok) {
-      throw new Error(
-        "Failed to get Realtime token"
-      );
-    }
-
-    const tokenData =
-      await tokenResponse.json();
-
-    const ephemeralKey =
-      tokenData.value;
-
-    if (!ephemeralKey) {
-      throw new Error(
-        "Realtime token missing"
-      );
-    }
-
-    // 2. Create WebRTC connection
-    const pc = new RTCPeerConnection();
-
-    peerConnectionRef.current = pc;
-
-    // 3. Create audio element for AI speech
-    const audio = new Audio();
-
-    audio.autoplay = true;
-
-    realtimeAudioRef.current = audio;
-
-    pc.ontrack = (event) => {
+    try {
       console.log(
-        "Realtime AI audio received"
+        "Starting OpenAI Realtime..."
       );
 
-      audio.srcObject =
-        event.streams[0];
-    };
+      setStatus("Connecting Realtime...");
+      setLastAction(null);
 
-    // 4. Get microphone
-    const stream =
-      await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+      // Reset transcript duplicate protection.
+      realtimeTranscriptItemsRef.current.clear();
 
-    realtimeStreamRef.current =
-      stream;
+      // Reset booking confirmation state.
+      realtimeBookingStateRef.current = {
+        customerName: null,
+        nameConfirmed: false,
+        appointmentConfirmed: false,
+      };
 
-    stream.getTracks().forEach(
-      (track) => {
-        pc.addTrack(
-          track,
-          stream
+      // ----------------------------------------------
+      // 1. GET EPHEMERAL REALTIME TOKEN
+      // ----------------------------------------------
+
+      const tokenResponse = await fetch(
+        "http://127.0.0.1:8000/api/realtime/token"
+      );
+
+      if (!tokenResponse.ok) {
+        const errorText =
+          await tokenResponse.text();
+
+        console.error(
+          "Realtime token error:",
+          errorText
+        );
+
+        throw new Error(
+          "Failed to get Realtime token"
         );
       }
-    );
 
-    // 5. Data channel for Realtime events
-    const dataChannel =
-      pc.createDataChannel(
-        "oai-events"
+      const tokenData =
+        await tokenResponse.json();
+
+      const ephemeralKey =
+        tokenData.value;
+
+      if (!ephemeralKey) {
+        throw new Error(
+          "Realtime token missing"
+        );
+      }
+
+      // ----------------------------------------------
+      // 2. CREATE WEBRTC CONNECTION
+      // ----------------------------------------------
+
+      const pc =
+        new RTCPeerConnection();
+
+      peerConnectionRef.current = pc;
+
+      // ----------------------------------------------
+      // 3. AI AUDIO OUTPUT
+      // ----------------------------------------------
+
+      const audio = new Audio();
+
+      audio.autoplay = true;
+
+      realtimeAudioRef.current =
+        audio;
+
+      pc.ontrack = (event) => {
+        console.log(
+          "Realtime AI audio received"
+        );
+
+        audio.srcObject =
+          event.streams[0];
+      };
+
+      // ----------------------------------------------
+      // 4. MICROPHONE
+      // ----------------------------------------------
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+
+      realtimeStreamRef.current =
+        stream;
+
+      stream
+        .getTracks()
+        .forEach((track) => {
+          pc.addTrack(
+            track,
+            stream
+          );
+        });
+
+      // ----------------------------------------------
+      // 5. OPENAI REALTIME DATA CHANNEL
+      // ----------------------------------------------
+
+      const dataChannel =
+        pc.createDataChannel(
+          "oai-events"
+        );
+
+      realtimeDataChannelRef.current =
+        dataChannel;
+
+      dataChannel.onopen = () => {
+        console.log(
+          "OpenAI Realtime data channel OPEN"
+        );
+
+        setStatus(
+          "Realtime Voice Connected"
+        );
+      };
+
+      // ==============================================
+      // REALTIME EVENT HANDLER
+      // ==============================================
+
+      dataChannel.onmessage = async (event) => {
+        const realtimeEvent =
+          JSON.parse(event.data);
+
+        console.log(
+          "Realtime event:",
+          realtimeEvent
+        );
+
+        // --------------------------------------------
+        // USER TRANSCRIPT
+        // --------------------------------------------
+
+        if (
+          realtimeEvent.type ===
+          "conversation.item.input_audio_transcription.completed"
+        ) {
+          const transcript =
+            realtimeEvent.transcript?.trim();
+
+          const transcriptKey =
+            `user:${realtimeEvent.item_id}`;
+
+          if (
+            transcript &&
+            !realtimeTranscriptItemsRef.current.has(
+              transcriptKey
+            )
+          ) {
+            realtimeTranscriptItemsRef.current.add(
+              transcriptKey
+            );
+
+            setMessages((previous) => [
+              ...previous,
+              {
+                role: "user",
+                text: transcript,
+              },
+            ]);
+          }
+        }
+
+        // --------------------------------------------
+        // ASSISTANT TRANSCRIPT
+        // --------------------------------------------
+
+        if (
+          realtimeEvent.type ===
+          "response.output_audio_transcript.done"
+        ) {
+          const transcript =
+            realtimeEvent.transcript?.trim();
+
+          const transcriptKey =
+            `assistant:${realtimeEvent.item_id}`;
+
+          if (
+            transcript &&
+            !realtimeTranscriptItemsRef.current.has(
+              transcriptKey
+            )
+          ) {
+            realtimeTranscriptItemsRef.current.add(
+              transcriptKey
+            );
+
+            setMessages((previous) => [
+              ...previous,
+              {
+                role: "assistant",
+                text: transcript,
+              },
+            ]);
+          }
+        }
+
+        // ============================================
+        // REALTIME TOOL CALL
+        // ============================================
+
+        if (
+          realtimeEvent.type ===
+          "response.function_call_arguments.done"
+        ) {
+          console.log(
+            "REALTIME TOOL CALL:",
+            realtimeEvent.name,
+            realtimeEvent.arguments
+          );
+
+          try {
+            const toolArguments =
+              JSON.parse(
+                realtimeEvent.arguments ||
+                  "{}"
+              );
+
+            let toolResult: any;
+
+            // ========================================
+            // TOOL 1:
+            // CONFIRM CUSTOMER NAME
+            // ========================================
+
+            if (
+              realtimeEvent.name ===
+              "confirm_customer_name"
+            ) {
+              const confirmedName =
+                String(
+                  toolArguments.name || ""
+                ).trim();
+
+              if (!confirmedName) {
+                toolResult = {
+                  success: false,
+                  error: "name_required",
+                  message:
+                    "A customer name is required.",
+                };
+              } else {
+                realtimeBookingStateRef.current.customerName =
+                  confirmedName;
+
+                realtimeBookingStateRef.current.nameConfirmed =
+                  true;
+
+                toolResult = {
+                  success: true,
+                  name_confirmed: true,
+                  name: confirmedName,
+                  message:
+                    "Customer name confirmation recorded.",
+                };
+
+                console.log(
+                  "NAME CONFIRMED:",
+                  confirmedName
+                );
+
+                setLastAction(
+                  `✓ Name confirmed: ${confirmedName}`
+                );
+              }
+            }
+
+            // ========================================
+            // TOOL 2:
+            // CONFIRM APPOINTMENT
+            // ========================================
+
+            else if (
+              realtimeEvent.name ===
+              "confirm_appointment"
+            ) {
+              const appointmentDate =
+                String(
+                  toolArguments.appointment_date ||
+                    ""
+                ).trim();
+
+              const appointmentTime =
+                String(
+                  toolArguments.appointment_time ||
+                    ""
+                ).trim();
+
+              if (
+                !appointmentDate ||
+                !appointmentTime
+              ) {
+                toolResult = {
+                  success: false,
+                  error:
+                    "appointment_details_required",
+                  message:
+                    "Appointment date and time are required.",
+                };
+              } else {
+                realtimeBookingStateRef.current.appointmentConfirmed =
+                  true;
+
+                toolResult = {
+                  success: true,
+                  appointment_confirmed:
+                    true,
+                  appointment_date:
+                    appointmentDate,
+                  appointment_time:
+                    appointmentTime,
+                  message:
+                    "Appointment confirmation recorded.",
+                };
+
+                console.log(
+                  "APPOINTMENT CONFIRMED:",
+                  appointmentDate,
+                  appointmentTime
+                );
+
+                setLastAction(
+                  "✓ Appointment details confirmed"
+                );
+              }
+            }
+
+            // ========================================
+            // NORMAL BACKEND TOOLS
+            // ========================================
+
+            else {
+              const toolResponse =
+                await fetch(
+                  "http://127.0.0.1:8000/api/realtime/tool",
+                  {
+                    method: "POST",
+
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+
+                    body: JSON.stringify({
+                      name:
+                        realtimeEvent.name,
+
+                      arguments:
+                        toolArguments,
+
+                      name_confirmed:
+                        realtimeBookingStateRef
+                          .current
+                          .nameConfirmed,
+
+                      appointment_confirmed:
+                        realtimeBookingStateRef
+                          .current
+                          .appointmentConfirmed,
+                    }),
+                  }
+                );
+
+              toolResult =
+                await toolResponse.json();
+
+              console.log(
+                "REALTIME TOOL RESULT:",
+                toolResult
+              );
+
+              // --------------------------------------
+              // CREATE LEAD
+              // --------------------------------------
+
+              if (
+                realtimeEvent.name ===
+                "create_lead"
+              ) {
+                const businessResult =
+                  toolResult?.result ??
+                  toolResult;
+
+                if (
+                  toolResult?.success ===
+                  false
+                ) {
+                  setLastAction(
+                    "⚠ Lead not captured"
+                  );
+                } else if (
+                  businessResult?.duplicate
+                ) {
+                  setLastAction(
+                    "✓ Existing lead found"
+                  );
+                } else {
+                  setLastAction(
+                    "✓ Lead captured"
+                  );
+                }
+              }
+
+              // --------------------------------------
+              // CREATE APPOINTMENT
+              // --------------------------------------
+
+              else if (
+                realtimeEvent.name ===
+                "create_appointment"
+              ) {
+                const businessResult =
+                  toolResult?.result ??
+                  toolResult;
+
+                if (
+                  toolResult?.success ===
+                    false ||
+                  businessResult?.success ===
+                    false
+                ) {
+                  setLastAction(
+                    "⚠ Appointment not scheduled"
+                  );
+                } else if (
+                  businessResult?.duplicate
+                ) {
+                  setLastAction(
+                    "✓ Existing appointment found"
+                  );
+                } else {
+                  setLastAction(
+                    "✓ Appointment scheduled"
+                  );
+                }
+              }
+
+              // --------------------------------------
+              // CREATE LEAD AND APPOINTMENT
+              // --------------------------------------
+
+              else if (
+                realtimeEvent.name ===
+                "create_lead_and_appointment"
+              ) {
+                const businessResult =
+                  toolResult?.result ??
+                  toolResult;
+
+                // ------------------------------------
+                // HARD GUARD FAILURE
+                // ------------------------------------
+
+                if (
+                  toolResult?.success ===
+                    false ||
+                  businessResult?.success ===
+                    false
+                ) {
+                  const error =
+                    businessResult?.error ||
+                    toolResult?.error;
+
+                  if (
+                    error ===
+                    "name_not_confirmed"
+                  ) {
+                    setLastAction(
+                      "⚠ Customer name must be confirmed"
+                    );
+                  } else if (
+                    error ===
+                    "appointment_not_confirmed"
+                  ) {
+                    setLastAction(
+                      "⚠ Appointment must be confirmed"
+                    );
+                  } else if (
+                    error ===
+                    "name_required"
+                  ) {
+                    setLastAction(
+                      "⚠ Customer name required"
+                    );
+                  } else if (
+                    error ===
+                    "slot_unavailable"
+                  ) {
+                    setLastAction(
+                      "⚠ Appointment slot unavailable"
+                    );
+                  } else {
+                    setLastAction(
+                      "⚠ Appointment not scheduled"
+                    );
+                  }
+                }
+
+                // ------------------------------------
+                // BOOKING TOOL EXECUTED
+                // ------------------------------------
+
+                else {
+                  const appointment =
+                    businessResult
+                      ?.appointment;
+
+                  const appointmentSucceeded =
+                    appointment?.success ===
+                    true;
+
+                  const leadDuplicate =
+                    businessResult?.lead
+                      ?.duplicate;
+
+                  const appointmentDuplicate =
+                    appointment?.duplicate;
+
+                  if (
+                    !appointmentSucceeded
+                  ) {
+                    setLastAction(
+                      "✓ Lead captured • ⚠ Appointment not scheduled"
+                    );
+                  } else if (
+                    leadDuplicate &&
+                    appointmentDuplicate
+                  ) {
+                    setLastAction(
+                      "✓ Existing customer • Existing appointment found"
+                    );
+                  } else if (
+                    leadDuplicate
+                  ) {
+                    setLastAction(
+                      "✓ Existing customer • New appointment scheduled"
+                    );
+                  } else if (
+                    appointmentDuplicate
+                  ) {
+                    setLastAction(
+                      "✓ Lead captured • Existing appointment found"
+                    );
+                  } else {
+                    setLastAction(
+                      "✓ Lead captured • Appointment scheduled"
+                    );
+                  }
+                }
+              }
+            }
+
+            // ========================================
+            // RETURN TOOL RESULT TO OPENAI
+            // ========================================
+
+            dataChannel.send(
+              JSON.stringify({
+                type:
+                  "conversation.item.create",
+
+                item: {
+                  type:
+                    "function_call_output",
+
+                  call_id:
+                    realtimeEvent.call_id,
+
+                  output:
+                    JSON.stringify(
+                      toolResult
+                    ),
+                },
+              })
+            );
+
+            // ----------------------------------------
+            // LET OPENAI CONTINUE SPEAKING
+            // ----------------------------------------
+
+            dataChannel.send(
+              JSON.stringify({
+                type:
+                  "response.create",
+              })
+            );
+          } catch (error) {
+            console.error(
+              "Realtime tool execution error:",
+              error
+            );
+
+            setLastAction(
+              "⚠ Tool execution error"
+            );
+          }
+        }
+      };
+
+      // ==============================================
+      // END OF DATA CHANNEL MESSAGE HANDLER
+      // ==============================================
+
+      dataChannel.onclose = () => {
+        console.log(
+          "OpenAI Realtime data channel CLOSED"
+        );
+
+        setStatus("Ready");
+      };
+
+      dataChannel.onerror = (event) => {
+        console.error(
+          "Realtime data channel error:",
+          event
+        );
+      };
+
+      // ----------------------------------------------
+      // 6. CREATE SDP OFFER
+      // ----------------------------------------------
+
+      const offer =
+        await pc.createOffer();
+
+      await pc.setLocalDescription(
+        offer
       );
 
-    realtimeDataChannelRef.current =
-      dataChannel;
+      // ----------------------------------------------
+      // 7. SEND SDP TO OPENAI
+      // ----------------------------------------------
 
-    dataChannel.onopen = () => {
-      console.log(
-        "OpenAI Realtime data channel OPEN"
-      );
-    };
-
-    dataChannel.onmessage = async (event) => {
-  const realtimeEvent = JSON.parse(event.data);
-
-  console.log(
-    "Realtime event:",
-    realtimeEvent
-  );
-
-  // Realtime user transcript.
-  // OpenAI emits this after each user audio turn when input
-  // transcription is enabled for the Realtime session.
-  if (
-    realtimeEvent.type ===
-    "conversation.item.input_audio_transcription.completed"
-  ) {
-    const transcript =
-      realtimeEvent.transcript?.trim();
-
-    const transcriptKey =
-      `user:${realtimeEvent.item_id}`;
-
-    if (
-      transcript &&
-      !realtimeTranscriptItemsRef.current.has(
-        transcriptKey
-      )
-    ) {
-      realtimeTranscriptItemsRef.current.add(
-        transcriptKey
-      );
-
-      setMessages((previous) => [
-        ...previous,
-        {
-          role: "user",
-          text: transcript,
-        },
-      ]);
-    }
-  }
-
-  // Realtime assistant transcript.
-  // Use the completed audio transcript so each AI turn is
-  // added to the chat only once.
-  if (
-    realtimeEvent.type ===
-    "response.output_audio_transcript.done"
-  ) {
-    const transcript =
-      realtimeEvent.transcript?.trim();
-
-    const transcriptKey =
-      `assistant:${realtimeEvent.item_id}`;
-
-    if (
-      transcript &&
-      !realtimeTranscriptItemsRef.current.has(
-        transcriptKey
-      )
-    ) {
-      realtimeTranscriptItemsRef.current.add(
-        transcriptKey
-      );
-
-      setMessages((previous) => [
-        ...previous,
-        {
-          role: "assistant",
-          text: transcript,
-        },
-      ]);
-    }
-  }
-
-  if (
-    realtimeEvent.type ===
-    "response.function_call_arguments.done"
-  ) {
-    console.log(
-      "REALTIME TOOL CALL:",
-      realtimeEvent.name,
-      realtimeEvent.arguments
-    );
-
-    try {
-      const toolResponse = await fetch(
-        "http://127.0.0.1:8000/api/realtime/tool",
+      const sdpResponse = await fetch(
+        "https://api.openai.com/v1/realtime/calls",
         {
           method: "POST",
+
+          body: offer.sdp,
+
           headers: {
-            "Content-Type": "application/json",
+            Authorization:
+              `Bearer ${ephemeralKey}`,
+
+            "Content-Type":
+              "application/sdp",
           },
-          body: JSON.stringify({
-            name: realtimeEvent.name,
-            arguments: JSON.parse(
-              realtimeEvent.arguments
-            ),
-          }),
         }
       );
 
-      const toolResult =
-        await toolResponse.json();
+      if (!sdpResponse.ok) {
+        const errorText =
+          await sdpResponse.text();
 
-      console.log(
-        "REALTIME TOOL RESULT:",
-        toolResult
-      );
-
-      // Keep the Realtime UI banner in sync with the actual tool result.
-      if (realtimeEvent.name === "create_lead") {
-        if (toolResult?.duplicate) {
-          setLastAction("✓ Existing lead found");
-        } else {
-          setLastAction("✓ Lead captured");
-        }
+        throw new Error(
+          `Realtime connection failed: ${errorText}`
+        );
       }
 
-      else if (realtimeEvent.name === "create_appointment") {
-        if (toolResult?.success === false) {
-          setLastAction("⚠ Appointment not scheduled");
-        } else if (toolResult?.duplicate) {
-          setLastAction("✓ Existing appointment found");
-        } else {
-          setLastAction("✓ Appointment scheduled");
-        }
-      }
+      // ----------------------------------------------
+      // 8. RECEIVE SDP ANSWER
+      // ----------------------------------------------
 
-      else if (
-        realtimeEvent.name === "create_lead_and_appointment"
-      ) {
-        // Realtime endpoint may wrap the business result.
-        // Normalize it first, then trust the appointment result itself.
-        const businessResult =
-          toolResult?.result ?? toolResult;
-
-        const appointment =
-          businessResult?.appointment;
-
-        const appointmentSucceeded =
-          appointment?.success === true;
-
-        const leadDuplicate =
-          businessResult?.lead?.duplicate;
-
-        const appointmentDuplicate =
-          appointment?.duplicate;
-
-        if (!appointmentSucceeded) {
-          setLastAction(
-            "✓ Lead captured • ⚠ Appointment not scheduled"
-          );
-        } else if (
-          leadDuplicate &&
-          appointmentDuplicate
-        ) {
-          setLastAction(
-            "✓ Existing customer • Existing appointment found"
-          );
-        } else if (leadDuplicate) {
-          setLastAction(
-            "✓ Existing customer • New appointment scheduled"
-          );
-        } else if (appointmentDuplicate) {
-          setLastAction(
-            "✓ Lead captured • Existing appointment found"
-          );
-        } else {
-          setLastAction(
-            "✓ Lead captured • Appointment scheduled"
-          );
-        }
-      }
-
-      dataChannel.send(
-        JSON.stringify({
-          type: "conversation.item.create",
-          item: {
-            type: "function_call_output",
-            call_id: realtimeEvent.call_id,
-            output: JSON.stringify(
-              toolResult
-            ),
-          },
-        })
-      );
-
-      dataChannel.send(
-        JSON.stringify({
-          type: "response.create",
-        })
-      );
-
-    } catch (error) {
-      console.error(
-        "Realtime tool execution error:",
-        error
-      );
-    }
-  }
-};
-
-    dataChannel.onclose = () => {
-      console.log(
-        "OpenAI Realtime data channel CLOSED"
-      );
-    };
-
-    // 6. Create SDP offer
-    const offer =
-      await pc.createOffer();
-
-    await pc.setLocalDescription(
-      offer
-    );
-
-    // 7. Send SDP to OpenAI
-    const sdpResponse = await fetch(
-      "https://api.openai.com/v1/realtime/calls",
-      {
-        method: "POST",
-        body: offer.sdp,
-        headers: {
-          Authorization:
-            `Bearer ${ephemeralKey}`,
-          "Content-Type":
-            "application/sdp",
-        },
-      }
-    );
-
-    if (!sdpResponse.ok) {
-      const errorText =
+      const answerSdp =
         await sdpResponse.text();
 
-      throw new Error(
-        `Realtime connection failed: ${errorText}`
+      await pc.setRemoteDescription({
+        type: "answer",
+        sdp: answerSdp,
+      });
+
+      console.log(
+        "OPENAI REALTIME CONNECTED"
+      );
+
+      setStatus(
+        "Realtime Voice Connected"
+      );
+    } catch (error) {
+      console.error(
+        "Realtime error:",
+        error
+      );
+
+      setStatus(
+        "Realtime connection failed"
       );
     }
+  };
 
-    // 8. Receive SDP answer
-    const answerSdp =
-      await sdpResponse.text();
-
-    await pc.setRemoteDescription({
-      type: "answer",
-      sdp: answerSdp,
-    });
-
-    console.log(
-      "OPENAI REALTIME CONNECTED"
-    );
-
-  } catch (error) {
-    console.error(
-      "Realtime error:",
-      error
-    );
-  }
-};
+  // ==================================================
+  // STOP OPENAI REALTIME
+  // ==================================================
 
   const stopRealtimeConversation = () => {
-  console.log("Stopping OpenAI Realtime...");
+    console.log(
+      "Stopping OpenAI Realtime..."
+    );
 
-  // Close the OpenAI data channel
-  if (realtimeDataChannelRef.current) {
-    realtimeDataChannelRef.current.close();
-    realtimeDataChannelRef.current = null;
-  }
+    if (
+      realtimeDataChannelRef.current
+    ) {
+      realtimeDataChannelRef.current.close();
 
-  // Close the WebRTC connection
-  if (peerConnectionRef.current) {
-    peerConnectionRef.current.close();
-    peerConnectionRef.current = null;
-  }
+      realtimeDataChannelRef.current =
+        null;
+    }
 
-  // Stop microphone access
-  if (realtimeStreamRef.current) {
-    realtimeStreamRef.current
-      .getTracks()
-      .forEach((track) => track.stop());
+    if (
+      peerConnectionRef.current
+    ) {
+      peerConnectionRef.current.close();
 
-    realtimeStreamRef.current = null;
-  }
+      peerConnectionRef.current =
+        null;
+    }
 
-  // Stop AI audio playback
-  if (realtimeAudioRef.current) {
-    realtimeAudioRef.current.pause();
-    realtimeAudioRef.current.srcObject = null;
-    realtimeAudioRef.current = null;
-  }
+    if (
+      realtimeStreamRef.current
+    ) {
+      realtimeStreamRef.current
+        .getTracks()
+        .forEach((track) => {
+          track.stop();
+        });
 
-  console.log("OPENAI REALTIME STOPPED");
-};
+      realtimeStreamRef.current =
+        null;
+    }
+
+    if (
+      realtimeAudioRef.current
+    ) {
+      realtimeAudioRef.current.pause();
+
+      realtimeAudioRef.current.srcObject =
+        null;
+
+      realtimeAudioRef.current =
+        null;
+    }
+
+    // Reset confirmation state when conversation ends.
+    realtimeBookingStateRef.current = {
+      customerName: null,
+      nameConfirmed: false,
+      appointmentConfirmed: false,
+    };
+
+    setStatus("Ready");
+
+    console.log(
+      "OPENAI REALTIME STOPPED"
+    );
+  };
+
+  // ==================================================
+  // TURN-BASED VOICE
+  // ==================================================
 
   async function startRecording() {
     try {
@@ -469,265 +882,334 @@ useEffect(() => {
           audio: true,
         });
 
-      streamRef.current = stream;
+      streamRef.current =
+        stream;
+
       audioChunksRef.current = [];
 
       const mediaRecorder =
         new MediaRecorder(stream);
 
-      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorderRef.current =
+        mediaRecorder;
 
-     mediaRecorder.ondataavailable = async (event) => {
-  console.log(
-    "Audio chunk created:",
-    event.data.size,
-    "bytes"
-  );
+      // ----------------------------------------------
+      // AUDIO CHUNKS
+      // ----------------------------------------------
 
-  if (event.data.size > 0) {
-    audioChunksRef.current.push(
-      event.data
-    );
+      mediaRecorder.ondataavailable =
+        async (event) => {
+          console.log(
+            "Audio chunk created:",
+            event.data.size,
+            "bytes"
+          );
 
-    const websocket =
-      websocketRef.current;
+          if (
+            event.data.size > 0
+          ) {
+            audioChunksRef.current.push(
+              event.data
+            );
 
-    console.log(
-      "WebSocket state:",
-      websocket?.readyState
-    );
+            const websocket =
+              websocketRef.current;
 
-    if (
-      websocket &&
-      websocket.readyState === WebSocket.OPEN
-    ) {
-      const audioBuffer =
-        await event.data.arrayBuffer();
+            console.log(
+              "WebSocket state:",
+              websocket?.readyState
+            );
 
-      websocket.send(audioBuffer);
+            if (
+              websocket &&
+              websocket.readyState ===
+                WebSocket.OPEN
+            ) {
+              const audioBuffer =
+                await event.data.arrayBuffer();
 
-      console.log(
-        "Audio chunk sent:",
-        audioBuffer.byteLength,
-        "bytes"
-      );
-    }
-  }
-};
+              websocket.send(
+                audioBuffer
+              );
 
-      mediaRecorder.onstop = async () => {
-        try {
-          setStatus("Thinking...");
-          setLastAction(null);
-
-          const audioBlob = new Blob(
-            audioChunksRef.current,
-            {
-              type:
-                mediaRecorder.mimeType ||
-                "audio/webm",
+              console.log(
+                "Audio chunk sent:",
+                audioBuffer.byteLength,
+                "bytes"
+              );
             }
-          );
+          }
+        };
 
-          const formData = new FormData();
+      // ----------------------------------------------
+      // USER PRESSES STOP
+      // ----------------------------------------------
 
-          formData.append(
-            "audio",
-            audioBlob,
-            "browser-recording.webm"
-          );
+      mediaRecorder.onstop =
+        async () => {
+          try {
+            setStatus(
+              "Thinking..."
+            );
 
-          formData.append(
-            "session_id",
-            sessionIdRef.current
-          );
+            setLastAction(null);
 
-          // STEP 1:
-          // Send voice to the AI agent ONCE.
-          const conversationResponse =
-            await fetch(
-              "http://127.0.0.1:8000/api/voice/conversation",
-              {
-                method: "POST",
-                body: formData,
+            const audioBlob =
+              new Blob(
+                audioChunksRef.current,
+                {
+                  type:
+                    mediaRecorder.mimeType ||
+                    "audio/webm",
+                }
+              );
+
+            const formData =
+              new FormData();
+
+            formData.append(
+              "audio",
+              audioBlob,
+              "browser-recording.webm"
+            );
+
+            formData.append(
+              "session_id",
+              sessionIdRef.current
+            );
+
+            // ----------------------------------------
+            // SEND AUDIO TO FASTAPI AGENT
+            // ----------------------------------------
+
+            const conversationResponse =
+              await fetch(
+                "http://127.0.0.1:8000/api/voice/conversation",
+                {
+                  method: "POST",
+                  body: formData,
+                }
+              );
+
+            if (
+              !conversationResponse.ok
+            ) {
+              const errorText =
+                await conversationResponse.text();
+
+              console.error(
+                "Conversation API error:",
+                errorText
+              );
+
+              throw new Error(
+                `Conversation API returned ${conversationResponse.status}`
+              );
+            }
+
+            const data =
+              await conversationResponse.json();
+
+            // ----------------------------------------
+            // DISPLAY TRANSCRIPT
+            // ----------------------------------------
+
+            setMessages(
+              (previous) => [
+                ...previous,
+                {
+                  role: "user",
+                  text:
+                    data.transcript,
+                },
+                {
+                  role: "assistant",
+                  text:
+                    data.response,
+                },
+              ]
+            );
+
+            // ----------------------------------------
+            // DISPLAY BUSINESS ACTION
+            // ----------------------------------------
+
+            if (
+              data.tool_called ===
+              "create_lead"
+            ) {
+              if (
+                data.tool_result
+                  ?.duplicate
+              ) {
+                setLastAction(
+                  "✓ Existing lead found"
+                );
+              } else {
+                setLastAction(
+                  "✓ Lead captured"
+                );
               }
-            );
-
-          if (!conversationResponse.ok) {
-            const errorText =
-              await conversationResponse.text();
-
-            console.error(
-              "Conversation API error:",
-              errorText
-            );
-
-            throw new Error(
-              `Conversation API returned ${conversationResponse.status}`
-            );
-          }
-
-          const data =
-            await conversationResponse.json();
-
-          // STEP 2:
-          // Display user transcript + AI response.
-          setMessages((previous) => [
-            ...previous,
-            {
-              role: "user",
-              text: data.transcript,
-            },
-            {
-              role: "assistant",
-              text: data.response,
-            },
-          ]);
-
-          // STEP 3:
-          // Display the business action.
-          if (data.tool_called === "create_lead") {
-  if (data.tool_result?.duplicate) {
-    setLastAction(
-      "✓ Existing lead found"
-    );
-  } else {
-    setLastAction(
-      "✓ Lead captured"
-    );
-  }
-}
-
-else if (
-  data.tool_called === "create_appointment"
-) {
-  if (data.tool_result?.success === false) {
-    setLastAction(
-      "⚠ Appointment not scheduled"
-    );
-  } else if (data.tool_result?.duplicate) {
-    setLastAction(
-      "✓ Existing appointment found"
-    );
-  } else {
-    setLastAction(
-      "✓ Appointment scheduled"
-    );
-  }
-}
-
-  else if (
-    data.tool_called === "create_lead_and_appointment"
-  ) {
-    const bookingSucceeded =
-      data.tool_result?.success === true;
-
-    const leadDuplicate =
-      data.tool_result?.lead?.duplicate;
-
-    const appointmentDuplicate =
-      data.tool_result?.appointment?.duplicate;
-
-    if (!bookingSucceeded) {
-      setLastAction(
-        "✓ Lead captured • ⚠ Appointment not scheduled"
-      );
-    }
-
-    else if (
-      leadDuplicate &&
-      appointmentDuplicate
-    ) {
-      setLastAction(
-        "✓ Existing customer • Existing appointment found"
-      );
-    }
-
-    else if (leadDuplicate) {
-      setLastAction(
-        "✓ Existing customer • New appointment scheduled"
-      );
-    }
-
-    else if (appointmentDuplicate) {
-      setLastAction(
-        "✓ Lead captured • Existing appointment found"
-      );
-    }
-
-    else {
-      setLastAction(
-        "✓ Lead captured • Appointment scheduled"
-      );
-    }
-  }
-
-          // STEP 4:
-          // Convert ONLY the AI response to speech.
-          setStatus("AI is speaking...");
-
-          const ttsResponse = await fetch(
-            "http://127.0.0.1:8000/api/tts",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                text: data.response,
-              }),
             }
-          );
 
-          if (!ttsResponse.ok) {
-            const errorText =
-              await ttsResponse.text();
+            else if (
+              data.tool_called ===
+              "create_appointment"
+            ) {
+              if (
+                data.tool_result
+                  ?.success === false
+              ) {
+                setLastAction(
+                  "⚠ Appointment not scheduled"
+                );
+              } else if (
+                data.tool_result
+                  ?.duplicate
+              ) {
+                setLastAction(
+                  "✓ Existing appointment found"
+                );
+              } else {
+                setLastAction(
+                  "✓ Appointment scheduled"
+                );
+              }
+            }
 
-            console.error(
-              "TTS API error:",
-              errorText
+            else if (
+              data.tool_called ===
+              "create_lead_and_appointment"
+            ) {
+              const bookingSucceeded =
+                data.tool_result
+                  ?.success === true;
+
+              const leadDuplicate =
+                data.tool_result
+                  ?.lead?.duplicate;
+
+              const appointmentDuplicate =
+                data.tool_result
+                  ?.appointment
+                  ?.duplicate;
+
+              if (
+                !bookingSucceeded
+              ) {
+                setLastAction(
+                  "✓ Lead captured • ⚠ Appointment not scheduled"
+                );
+              } else if (
+                leadDuplicate &&
+                appointmentDuplicate
+              ) {
+                setLastAction(
+                  "✓ Existing customer • Existing appointment found"
+                );
+              } else if (
+                leadDuplicate
+              ) {
+                setLastAction(
+                  "✓ Existing customer • New appointment scheduled"
+                );
+              } else if (
+                appointmentDuplicate
+              ) {
+                setLastAction(
+                  "✓ Lead captured • Existing appointment found"
+                );
+              } else {
+                setLastAction(
+                  "✓ Lead captured • Appointment scheduled"
+                );
+              }
+            }
+
+            // ----------------------------------------
+            // TEXT TO SPEECH
+            // ----------------------------------------
+
+            setStatus(
+              "AI is speaking..."
             );
 
-            throw new Error(
-              `TTS API returned ${ttsResponse.status}`
+            const ttsResponse =
+              await fetch(
+                "http://127.0.0.1:8000/api/tts",
+                {
+                  method: "POST",
+
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+
+                  body: JSON.stringify({
+                    text:
+                      data.response,
+                  }),
+                }
+              );
+
+            if (!ttsResponse.ok) {
+              const errorText =
+                await ttsResponse.text();
+
+              console.error(
+                "TTS API error:",
+                errorText
+              );
+
+              throw new Error(
+                `TTS API returned ${ttsResponse.status}`
+              );
+            }
+
+            const responseAudioBlob =
+              await ttsResponse.blob();
+
+            const audioUrl =
+              URL.createObjectURL(
+                responseAudioBlob
+              );
+
+            const audio =
+              new Audio(
+                audioUrl
+              );
+
+            audio.onended = () => {
+              setStatus("Ready");
+
+              URL.revokeObjectURL(
+                audioUrl
+              );
+            };
+
+            await audio.play();
+          } catch (error) {
+            console.error(
+              error
+            );
+
+            setStatus(
+              "Something went wrong"
             );
           }
-
-          const responseAudioBlob =
-            await ttsResponse.blob();
-
-          const audioUrl =
-            URL.createObjectURL(
-              responseAudioBlob
-            );
-
-          const audio = new Audio(audioUrl);
-
-          audio.onended = () => {
-            setStatus("Ready");
-
-            URL.revokeObjectURL(
-              audioUrl
-            );
-          };
-
-          await audio.play();
-        } catch (error) {
-          console.error(error);
-
-          setStatus(
-            "Something went wrong"
-          );
-        }
-      };
+        };
 
       mediaRecorder.start(250);
 
       setIsRecording(true);
-      setStatus("Listening...");
+
+      setStatus(
+        "Listening..."
+      );
     } catch (error) {
-      console.error(error);
+      console.error(
+        error
+      );
 
       setStatus(
         "Microphone access denied"
@@ -735,13 +1217,18 @@ else if (
     }
   }
 
+  // ==================================================
+  // STOP TURN-BASED RECORDING
+  // ==================================================
+
   function stopRecording() {
     const recorder =
       mediaRecorderRef.current;
 
     if (
       recorder &&
-      recorder.state !== "inactive"
+      recorder.state !==
+        "inactive"
     ) {
       recorder.stop();
     }
@@ -753,15 +1240,21 @@ else if (
       });
 
     setIsRecording(false);
-    setStatus("Processing...");
+
+    setStatus(
+      "Processing..."
+    );
   }
+  // ==================================================
+  // UI
+  // ==================================================
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6">
+    <main className="min-h-screen bg-slate-950 p-6 text-white">
       <div className="mx-auto w-full max-w-2xl py-10">
-
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400 mb-5">
+        {/* HEADER */}
+        <div className="mb-8 text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             AI Agent Online
           </div>
@@ -771,20 +1264,19 @@ else if (
           </h1>
 
           <p className="mt-3 text-slate-400">
-            Speak naturally. The AI can answer
-            questions, capture leads, and schedule
-            appointments.
+            Speak naturally. The AI can answer questions, capture
+            leads, and schedule appointments.
           </p>
         </div>
 
+        {/* VOICE CARD */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
-
           <div className="flex flex-col items-center">
-
+            {/* MICROPHONE */}
             <div
               className={`mb-6 flex h-28 w-28 items-center justify-center rounded-full ${
                 isRecording
-                  ? "bg-red-500/20 animate-pulse"
+                  ? "animate-pulse bg-red-500/20"
                   : "bg-blue-500/10"
               }`}
             >
@@ -799,77 +1291,108 @@ else if (
               </div>
             </div>
 
+            {/* STATUS */}
             <p className="text-sm uppercase tracking-widest text-slate-500">
               Status
             </p>
 
-            <p className="mt-2 text-xl font-semibold">
+            <p className="mb-6 mt-2 text-xl font-semibold">
               {status}
             </p>
 
-           {!isRecording ? (
-            <>
-              <button
-                onClick={startRecording}
-                disabled={isRecording}
-                className="
-                  mx-auto w-full max-w-xl rounded-xl
-                  bg-gradient-to-b
-                  from-emerald-200 via-emerald-300 to-emerald-500
-                  px-5 py-3
-                  text-base font-bold text-slate-900
-                  border border-emerald-100
-                  shadow-[inset_0_2px_2px_rgba(255,255,255,0.85),0_5px_14px_rgba(16,185,129,0.25)]
-                  hover:from-emerald-100 hover:via-emerald-200 hover:to-emerald-400
-                  active:scale-[0.99]
-                  transition-all duration-150
-                  disabled:opacity-50
-                "
-              >
-                Start Conversation
-              </button>
+            {!isRecording ? (
+              <>
+                {/* TURN BASED */}
+                <button
+                  onClick={startRecording}
+                  disabled={isRecording}
+                  className={`
+                    mx-auto w-full max-w-xl rounded-xl
+                    border border-emerald-100
+                    bg-gradient-to-b
+                    from-emerald-200 via-emerald-300 to-emerald-500
+                    px-5 py-3
+                    text-base font-bold text-slate-900
+                    shadow-[inset_0_2px_2px_rgba(255,255,255,0.85),0_5px_14px_rgba(16,185,129,0.25)]
+                    transition-all duration-150
+                    hover:from-emerald-100
+                    hover:via-emerald-200
+                    hover:to-emerald-400
+                    active:scale-[0.99]
+                    disabled:opacity-50
+                  `}
+                >
+                  Start Conversation
+                </button>
 
-              <button
-                onClick={startRealtimeConversation}
-                className="mt-3 mx-auto w-full max-w-xl rounded-xl
-                  bg-gradient-to-b from-sky-200 via-sky-300 to-blue-500
-                  px-5 py-3 text-base font-bold text-slate-900
-                  border border-sky-100
-                  shadow-[inset_0_2px_2px_rgba(255,255,255,0.85),0_5px_14px_rgba(14,165,233,0.25)]
-                  hover:from-sky-100 hover:via-sky-200 hover:to-blue-400
-                  active:scale-[0.99] transition-all duration-150"
-              >
-                ▶ Start Realtime Voice
-              </button>
+                {/* REALTIME START */}
+                <button
+                  onClick={startRealtimeConversation}
+                  className={`
+                    mt-3 mx-auto w-full max-w-xl rounded-xl
+                    border border-sky-100
+                    bg-gradient-to-b
+                    from-sky-200 via-sky-300 to-blue-500
+                    px-5 py-3
+                    text-base font-bold text-slate-900
+                    shadow-[inset_0_2px_2px_rgba(255,255,255,0.85),0_5px_14px_rgba(14,165,233,0.25)]
+                    transition-all duration-150
+                    hover:from-sky-100
+                    hover:via-sky-200
+                    hover:to-blue-400
+                    active:scale-[0.99]
+                  `}
+                >
+                  ▶ Start Realtime Voice
+                </button>
 
+                {/* REALTIME STOP */}
+                <button
+                  onClick={stopRealtimeConversation}
+                  className={`
+                    mt-3 mx-auto w-full max-w-xl rounded-xl
+                    border border-rose-100
+                    bg-gradient-to-b
+                    from-rose-200 via-red-300 to-red-500
+                    px-5 py-3
+                    text-base font-bold text-slate-900
+                    shadow-[inset_0_2px_2px_rgba(255,255,255,0.85),0_5px_14px_rgba(239,68,68,0.25)]
+                    transition-all duration-150
+                    hover:from-rose-100
+                    hover:via-red-200
+                    hover:to-red-400
+                    active:scale-[0.99]
+                  `}
+                >
+                  ■ Stop Realtime Voice
+                </button>
+              </>
+            ) : (
               <button
-              onClick={stopRealtimeConversation}
-              className="mt-3 mx-auto w-full max-w-xl rounded-xl
-                  bg-gradient-to-b from-rose-200 via-red-300 to-red-500
-                  px-5 py-3 text-base font-bold text-slate-900
+                onClick={stopRecording}
+                className={`
+                  w-full rounded-xl
                   border border-rose-100
+                  bg-gradient-to-b
+                  from-rose-200 via-red-300 to-red-500
+                  px-6 py-4
+                  font-bold text-slate-900
                   shadow-[inset_0_2px_2px_rgba(255,255,255,0.85),0_5px_14px_rgba(239,68,68,0.25)]
-                  hover:from-rose-100 hover:via-red-200 hover:to-red-400
-                  active:scale-[0.99] transition-all duration-150"
-            >
-              ■ Stop Realtime Voice
-            </button>
-            </>
-          ) : (
-            <button
-              onClick={stopRecording}
-              className="w-full rounded-xl bg-red-600 px-6 py-4 font-semibold text-white"
-            >
-              Stop & Send
-            </button>
-          )}
-
+                  transition-all duration-150
+                  hover:from-rose-100
+                  hover:via-red-200
+                  hover:to-red-400
+                  active:scale-[0.99]
+                `}
+              >
+                Stop & Send
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Conversation transcript */}
+        {/* CONVERSATION */}
         <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-6">
-
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">
               Conversation
@@ -915,16 +1438,16 @@ else if (
             </div>
           )}
 
+          {/* BUSINESS ACTION */}
           {lastAction && (
             <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
               {lastAction}
             </div>
           )}
-
         </div>
 
+        {/* FEATURES */}
         <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-
           <div className="rounded-xl bg-slate-900 p-4">
             <div>🧠</div>
             <div className="mt-2 text-xs text-slate-400">
@@ -945,7 +1468,6 @@ else if (
               Scheduling
             </div>
           </div>
-
         </div>
       </div>
     </main>
