@@ -6,6 +6,7 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
 import websockets
 import os
@@ -42,11 +43,15 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://app.tanimosoftware.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 initialize_database()
@@ -795,7 +800,7 @@ async def twilio_voice(request: Request):
     <?xml version="1.0" encoding="UTF-8"?>
     <Response>
         <Connect>
-            <Stream url="wss://cosmic-thread-cyclic.ngrok-free.dev/ws/twilio-media">
+            <Stream url="wss://api.tanimosoftware.com/ws/twilio-media">
                 <Parameter
                     name="called_number"
                     value="{called_number}"

@@ -62,7 +62,7 @@ export default function Home() {
 
   useEffect(() => {
     const websocket = new WebSocket(
-      "ws://127.0.0.1:8000/ws/voice"
+      "wss://api.tanimosoftware.com/ws/voice"
     );
 
     websocketRef.current = websocket;
@@ -130,7 +130,7 @@ export default function Home() {
       // ----------------------------------------------
 
       const tokenResponse = await fetch(
-        "http://127.0.0.1:8000/api/realtime/token"
+       "https://api.tanimosoftware.com/api/realtime/token"
       );
 
       if (!tokenResponse.ok) {
@@ -449,7 +449,7 @@ export default function Home() {
             else {
               const toolResponse =
                 await fetch(
-                  "http://127.0.0.1:8000/api/realtime/tool",
+                  "https://api.tanimosoftware.com/api/realtime/tool",
                   {
                     method: "POST",
 
@@ -984,7 +984,7 @@ export default function Home() {
 
             const conversationResponse =
               await fetch(
-                "http://127.0.0.1:8000/api/voice/conversation",
+                "https://api.tanimosoftware.com/api/voice/conversation",
                 {
                   method: "POST",
                   body: formData,
@@ -1136,7 +1136,7 @@ export default function Home() {
 
             const ttsResponse =
               await fetch(
-                "http://127.0.0.1:8000/api/tts",
+                "https://api.tanimosoftware.com/api/tts",
                 {
                   method: "POST",
 
@@ -1268,7 +1268,23 @@ export default function Home() {
             leads, and schedule appointments.
           </p>
         </div>
+        {/* PHONE DEMO */}
+<div className="mb-8 rounded-2xl border border-sky-500/30 bg-sky-500/10 p-5 text-center">
+  <p className="text-sm font-semibold uppercase tracking-wider text-sky-400">
+    Live Phone Demo
+  </p>
 
+  <p className="mt-2 text-slate-300">
+    Call the AI receptionist and speak with it live.
+  </p>
+
+  <a
+    href="tel:+17432107468"
+    className="mt-4 inline-block rounded-xl bg-sky-500 px-6 py-3 font-bold text-white shadow-lg transition hover:bg-sky-400"
+  >
+    ☎ Call AI Receptionist: (743) 210-7468
+  </a>
+</div>
         {/* VOICE CARD */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
           <div className="flex flex-col items-center">
